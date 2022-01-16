@@ -69,7 +69,6 @@ object Main {
             Collections.sort(pages, Collections.reverseOrder())
             document = PDDocument.load(File(input))
             pages.forEach {
-                println("Removendo Pagina: $it")
                 document.removePage(it)
             }
             document.save(output)
