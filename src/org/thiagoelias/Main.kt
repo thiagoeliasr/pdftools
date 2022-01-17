@@ -1,5 +1,7 @@
 package org.thiagoelias
 
+import org.apache.pdfbox.io.MemoryUsageSetting
+import org.apache.pdfbox.multipdf.PDFMergerUtility
 import org.apache.pdfbox.pdmodel.PDDocument;
 import java.io.File
 import java.io.IOException
@@ -28,65 +30,74 @@ object Main {
                 output = args[2]
                 pagesToRemove = args[3]
 
-                if (removePages(input, output, pagesToRemove)) {
-                    println("Pages were removed and saved on the output path")
-                } else {
-                    println("An error ocurred while trying to remove pages from input document")
+                removePages(input, output, pagesToRemove)
+                return
+            }
+            if (action == "merge-files") {
+                // When merging PDFs, the last path will always be the output.
+                if (args.size < 4) {
+                    println("To merge PDFs, you need to specify at least two inputs. "
+                        + "(Remember that the last file will always be the output")
+                    return
                 }
-                return;
+
+                val inputs: MutableList<String> = mutableListOf()
+                for (i in 1 until (args.size - 1)) {
+                    inputs.add(args[i])
+                }
+
+                output = args[args.size - 1]
+
+                // @todo: Let user specify how much MainMemory he would like to use. Default to 512MiB
+                mergeFiles(inputs, output)
+                return
             }
             println("Usage: java pdftools <action> <input> <output?> <pagesToRemove?>")
-        } catch (e: IOException) {
-            return
-        } catch (ex: Exception) {
-            println("An error occurred: ${ex.message}")
+        } catch (iex: IndexOutOfBoundsException) {
+            println("Page out of bounds. Check if the document has all the pages specified for removal")
+        } catch (ioe: IOException) {
+            println("An IO Error has occurred: ${ioe.message}")
+        } catch (e: Exception) {
+            println("An error occurred: ${e.message}")
         }
     }
 
+    @Throws(IOException::class)
     private fun getPages(input: String): Int {
-        var document = PDDocument()
         var qtPages = 0
-        try {
-            document = PDDocument.load(File(input))
-            qtPages = document.numberOfPages
-        } catch (e: IOException) {
-            println("The specified file couldn't be found.")
-            e.printStackTrace()
-        }
+        val document = PDDocument.load(File(input))
+        qtPages = document.numberOfPages
         document.close()
         return qtPages
     }
 
-    private fun removePages(input: String, output: String, pages: String): Boolean {
+    @Throws(IndexOutOfBoundsException::class, Exception::class)
+    private fun removePages(input: String, output: String, pages: String) {
         var document: PDDocument? = null
-        try {
-            var strPages = pages.split(",")
-            var pages: MutableList<Int> = mutableListOf()
-            // Converting values to int before sorting them
-            strPages.forEach() {
-                pages.add(Integer.parseInt(it))
-            }
-            Collections.sort(pages, Collections.reverseOrder())
-            document = PDDocument.load(File(input))
-            pages.forEach {
-                document.removePage(it)
-            }
-            document.save(output)
-            document.close()
-            return true
-        } catch (obe: IndexOutOfBoundsException) {
-            if (document != null) {
-                document.close()
-            }
-            println("At least one of the specified pages exceeds the size of the document")
-            return false
-        } catch (e: Exception) {
-            if (document != null) {
-                document.close()
-            }
-            e.printStackTrace()
-            return false
+        val strPages = pages.split(",")
+        val pages: MutableList<Int> = mutableListOf()
+
+        // Converting values to int before sorting them
+        strPages.forEach() {
+            pages.add(Integer.parseInt(it))
         }
+        Collections.sort(pages, Collections.reverseOrder())
+        document = PDDocument.load(File(input))
+        pages.forEach {
+            document.removePage(it)
+        }
+        document.save(output)
+        document.close()
+    }
+
+    @Throws(IOException::class)
+    private fun mergeFiles(inputs: MutableList<String>, output: String, maxMemory: Long = 512) {
+        val pdfMerger = PDFMergerUtility()
+        pdfMerger.destinationFileName = output
+        inputs.forEach() {
+            pdfMerger.addSource(File(it))
+        }
+        pdfMerger.mergeDocuments(MemoryUsageSetting.setupMixed(1024 * 1024 * maxMemory))
     }
 
 }
