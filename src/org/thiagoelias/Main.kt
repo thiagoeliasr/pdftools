@@ -23,7 +23,6 @@ import javax.imageio.ImageWriteParam
 import javax.media.jai.PlanarImage
 import kotlin.math.roundToInt
 
-
 object Main {
     @JvmStatic
     fun main(args: Array<String>) {
