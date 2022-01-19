@@ -8,6 +8,7 @@ Simple Kotlin Console app for some PDF Processing.
 - Remove Pages from PDF to a new output
 - Merge PDF files into a new output
 - Compress PDF
+- Generate a PDF output without password from input *(using the correct password to do it)*
 
 ## Usage
 
@@ -45,6 +46,14 @@ After the action, just specify input and output files
 
 ```
 java PDFTools.jar compress input-file-path.pdf output-file-path.pdf
+```
+
+#### Unlock PDF
+
+With the password, will generate another output without protection
+
+```
+java PDFTools.jar unlock-document input-file-path.pdf output-file-path.pdf <password>
 ```
 
 **PS:** *The compression is limited to reduce the jpeg quality to 50% and scaling

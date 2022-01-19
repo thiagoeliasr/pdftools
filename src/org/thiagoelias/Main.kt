@@ -6,11 +6,14 @@ import org.apache.pdfbox.multipdf.PDFMergerUtility
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDResources
 import org.apache.pdfbox.pdmodel.common.PDRectangle
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException
+import org.apache.pdfbox.pdmodel.encryption.StandardDecryptionMaterial
 import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject
 import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject
 import org.apache.pdfbox.pdmodel.graphics.pattern.PDTilingPattern
 import org.imgscalr.Scalr
+import org.omg.CORBA.DynAnyPackage.Invalid
 import java.awt.image.BufferedImage
 import java.awt.image.RenderedImage
 import java.io.ByteArrayOutputStream
@@ -33,6 +36,11 @@ object Main {
         val pagesToRemove: String?
 
         try {
+            if (args.isEmpty()) {
+                println("Usage: java PDFTools.jar <action> <input> <output?> <options?>")
+                return;
+            }
+
             action = args[0]
             input = args[1]
 
@@ -72,7 +80,15 @@ object Main {
                 compressPDF(input, output)
                 return
             }
-            println("Usage: java pdftools <action> <input> <output?> <pagesToRemove?>")
+            if (action == "unlock-document") {
+                val output = args[2]
+                val password = args[3]
+                unLockDocument(input, output, password)
+                return;
+            }
+            println("Usage: java PDFTools.jar <action> <input> <output?> <options?>")
+        } catch (ipex: InvalidPasswordException) {
+            println("The input document requires a valid password.")
         } catch (iex: IndexOutOfBoundsException) {
             println("Page out of bounds. Check if the document has all the pages specified for removal")
         } catch (ioe: IOException) {
@@ -83,7 +99,7 @@ object Main {
         }
     }
 
-    @Throws(IOException::class)
+    @Throws(IOException::class, InvalidPasswordException::class)
     private fun getPages(input: String): Int {
         var qtPages = 0
         val document = PDDocument.load(File(input))
@@ -92,7 +108,14 @@ object Main {
         return qtPages
     }
 
-    @Throws(IndexOutOfBoundsException::class, Exception::class)
+    @Throws(IOException::class, InvalidPasswordException::class)
+    private fun unLockDocument(input: String, output: String, password: String) {
+        var document = PDDocument.load(File(input), password)
+        document.isAllSecurityToBeRemoved = true
+        document.save(output)
+    }
+
+    @Throws(IndexOutOfBoundsException::class, Exception::class, InvalidPasswordException::class)
     private fun removePages(input: String, output: String, pages: String) {
         var document: PDDocument? = null
         val strPages = pages.split(",")
@@ -111,7 +134,7 @@ object Main {
         document.close()
     }
 
-    @Throws(IOException::class)
+    @Throws(IOException::class, InvalidPasswordException::class)
     private fun mergeFiles(inputs: MutableList<String>, output: String, maxMemory: Long = 512) {
         val pdfMerger = PDFMergerUtility()
         pdfMerger.destinationFileName = output
@@ -121,7 +144,7 @@ object Main {
         pdfMerger.mergeDocuments(MemoryUsageSetting.setupMixed(1024 * 1024 * maxMemory))
     }
 
-    @Throws(IOException::class)
+    @Throws(IOException::class, InvalidPasswordException::class)
     private fun compressPDF(input: String, output: String) {
         val document: PDDocument = PDDocument.load(File(input))
         replaceBitmapImagesResources(document)
@@ -148,7 +171,7 @@ object Main {
             // Obtain writer for JPEG format
             val jpgWriter = ImageIO.getImageWritersByFormatName("JPEG").next()
 
-            // Configure JPEG compression: 70% quality
+            // Configure JPEG compression: 50% quality
             val jpgWriteParam = jpgWriter.defaultWriteParam
             jpgWriteParam.compressionMode = ImageWriteParam.MODE_EXPLICIT
             jpgWriteParam.compressionQuality = 0.50f
